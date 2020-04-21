@@ -27,7 +27,7 @@ namespace BTShare2
         private BluetoothLeScanner mBluetoothLeScanner;
         private Handler mHandler = new Handler();
 
-        public const string UUIDString = "CDB7950D-73F1-4D4D-8E47-C090502DBD63";
+        public const string UUIDString = "0000b81d-0000-1000-8000-00805f9b34fb";
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
@@ -50,6 +50,7 @@ namespace BTShare2
                 mAdvertiseButton.Enabled = false;
                 mDiscoverButton.Enabled = false;
             }
+
 
         }
 
@@ -116,9 +117,9 @@ namespace BTShare2
             ParcelUuid pUuid = new ParcelUuid(UUID.FromString(UUIDString));
 
             AdvertiseData data = new AdvertiseData.Builder()
-                    .SetIncludeDeviceName(true)
+                    //.SetIncludeDeviceName(true)
                     .AddServiceUuid(pUuid)
-                    //.AddServiceData(pUuid, Encoding.UTF8.GetBytes("Data"))
+                    .AddServiceData(pUuid, Convert.FromBase64String("Data send"))
                     .Build();
 
             MyAdvertiseCallback myAdvertiseCallback = new MyAdvertiseCallback();
@@ -151,8 +152,10 @@ namespace BTShare2
                 return;
 
             StringBuilder builder = new StringBuilder(result.Device.Name);
-
-            //builder.Append("\n").Append(new string(result.ScanRecord.ServiceData(result.getScanRecord().getServiceUuids().get(0)), Charset.forName("UTF-8")));
+            builder.Append(" ").Append(result.Device.Address);
+            byte[] data;
+            result.ScanRecord.ServiceData.TryGetValue(result.ScanRecord.ServiceUuids[0], out data);
+            builder.Append("\n").Append(Convert.ToBase64String(data));
 
             mainActivity.success++;
             mainActivity.mSuccessCountText.Text = mainActivity.success.ToString();
