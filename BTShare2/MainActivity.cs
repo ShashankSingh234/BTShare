@@ -10,6 +10,9 @@ using Java.Util;
 using System.Text;
 using Android.Text;
 using System;
+using Microsoft.AppCenter;
+using Microsoft.AppCenter.Crashes;
+using Microsoft.AppCenter.Analytics;
 
 namespace BTShare2
 {
@@ -35,6 +38,9 @@ namespace BTShare2
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             // Set our view from the "main" layout resource
             SetContentView(Resource.Layout.activity_main);
+
+            AppCenter.Start("5c06e9f4-aa80-40ff-8cf4-f957345a44c5",
+                   typeof(Analytics), typeof(Crashes));
 
             mSuccessCountText = FindViewById<TextView>(Resource.Id.successCountText);
             mFailedCountText = FindViewById<TextView>(Resource.Id.failedCountText);
@@ -117,9 +123,9 @@ namespace BTShare2
             ParcelUuid pUuid = new ParcelUuid(UUID.FromString(UUIDString));
 
             AdvertiseData data = new AdvertiseData.Builder()
-                    //.SetIncludeDeviceName(true)
+                    .SetIncludeDeviceName(true)
                     .AddServiceUuid(pUuid)
-                    .AddServiceData(pUuid, Convert.FromBase64String("Data send"))
+                    .AddServiceData(pUuid, Encoding.UTF8.GetBytes("Data send"))
                     .Build();
 
             MyAdvertiseCallback myAdvertiseCallback = new MyAdvertiseCallback();
@@ -155,7 +161,7 @@ namespace BTShare2
             builder.Append(" ").Append(result.Device.Address);
             byte[] data;
             result.ScanRecord.ServiceData.TryGetValue(result.ScanRecord.ServiceUuids[0], out data);
-            builder.Append("\n").Append(Convert.ToBase64String(data));
+            builder.Append("\n").Append(Encoding.UTF8.GetString(data));
 
             mainActivity.success++;
             mainActivity.mSuccessCountText.Text = mainActivity.success.ToString();
