@@ -69,9 +69,14 @@
     <Reference Include="System.Numerics.Vectors" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BroadcastReciever\DiscoverableModeReceiver.cs" />
+    <Compile Include="Callbacks\MyAdvertiseCallback.cs" />
+    <Compile Include="Callbacks\MyScanCallback.cs" />
+    <Compile Include="DeviceListScanner.cs" />
     <Compile Include="MainActivity.cs" />
     <Compile Include="Resources\Resource.designer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\BluetoothChatService.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\AboutResources.txt" />
