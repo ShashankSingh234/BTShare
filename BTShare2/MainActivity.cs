@@ -1,24 +1,18 @@
 ﻿using Android.App;
 using Android.OS;
 using Android.Support.V7.App;
-using Android.Runtime;
 using Android.Widget;
-using Android.Bluetooth.LE;
-using System.Collections.Generic;
 using Android.Bluetooth;
-using Java.Util;
 using System.Text;
-using Android.Text;
 using System;
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Crashes;
 using Microsoft.AppCenter.Analytics;
-using BTShare2.Callbacks;
 using BTShare2.Services;
 using Android.Content;
 using BTShare2.BroadcastReciever;
 using static BTShare2.DeviceListScanner;
-using Android.Util;
+using BTShare2.Helpers;
 
 namespace BTShare2
 {
@@ -30,19 +24,11 @@ namespace BTShare2
         public TextView mText;
         public int success = 0;
         public int failed = 0;
-        private Button mAdvertiseButton;
-        private Button mDiscoverButton;
-
-        private BluetoothLeScanner mBluetoothLeScanner;
-        private Handler mHandler = new Handler();
+        private Button discoverDeviceButton;
+        private Button sendMessageButton;
 
         public const string UUIDString = "0000b81d-0000-1000-8000-00805f9b34fb";
 
-
-        const string TAG = "BluetoothChatFragment";
-
-        const int REQUEST_CONNECT_DEVICE_SECURE = 1;
-        const int REQUEST_CONNECT_DEVICE_INSECURE = 2;
         const int REQUEST_ENABLE_BT = 3;
 
         String connectedDeviceName = "";
@@ -50,10 +36,7 @@ namespace BTShare2
         BluetoothAdapter bluetoothAdapter = null;
         BluetoothChatService chatService = null;
 
-        bool requestingPermissionsSecure, requestingPermissionsInsecure;
-
         DiscoverableModeReceiver discoverableModeReceiver;
-        //ChatHandler handler;
         DeviceDiscoveredReceiver deviceDiscoveredReceiver;
 
         protected override void OnCreate(Bundle savedInstanceState)
@@ -69,34 +52,16 @@ namespace BTShare2
             mSuccessCountText = FindViewById<TextView>(Resource.Id.successCountText);
             mFailedCountText = FindViewById<TextView>(Resource.Id.failedCountText);
             mText = FindViewById<TextView>(Resource.Id.text);
-            mDiscoverButton = FindViewById<Button>(Resource.Id.discover_btn);
-            mAdvertiseButton = FindViewById<Button>(Resource.Id.advertise_btn);
-
-            mBluetoothLeScanner = BluetoothAdapter.DefaultAdapter.BluetoothLeScanner;
-
-            if (!BluetoothAdapter.DefaultAdapter.IsMultipleAdvertisementSupported)
-            {
-                Toast.MakeText(this, "Multiple advertisement not supported", ToastLength.Long).Show();
-                mAdvertiseButton.Enabled = false;
-                mDiscoverButton.Enabled = false;
-            }
+            sendMessageButton = FindViewById<Button>(Resource.Id.discover_btn);
+            discoverDeviceButton = FindViewById<Button>(Resource.Id.advertise_btn);
 
             bluetoothAdapter = BluetoothAdapter.DefaultAdapter;
-
-
-            //receiver = new DiscoverableModeReceiver();
-            //receiver.BluetoothDiscoveryModeChanged += (sender, e) =>
-            //{
-            //    InvalidateOptionsMenu();
-            //};
 
             if (bluetoothAdapter == null)
             {
                 Toast.MakeText(this, "Bluetooth is not available.", ToastLength.Long).Show();
                 FinishAndRemoveTask();
             }
-
-            //handler = new ChatHandler(this);
 
             // Register for broadcasts when a device is discovered
             deviceDiscoveredReceiver = new DeviceDiscoveredReceiver();
@@ -118,7 +83,8 @@ namespace BTShare2
             }
             else if (chatService == null)
             {
-                SetupChat();
+                chatService = new BluetoothChatService(this);
+                outStringBuffer = new StringBuilder("");
             }
 
             // Register for when the scan mode changes
@@ -139,59 +105,28 @@ namespace BTShare2
             // Unregister broadcast listeners
             UnregisterReceiver(deviceDiscoveredReceiver);
         }
+
         protected override void OnResume()
         {
             base.OnResume();
             if (chatService != null)
             {
-                if (chatService.GetState() == BluetoothChatService.STATE_NONE)
+                if (chatService.GetState() == Constants.STATE_NONE)
                 {
                     chatService.Start();
                 }
             }
-            mDiscoverButton.Click += MDiscoverButton_Click;
-            mAdvertiseButton.Click += MAdvertiseButton_Click;
-            DeviceListScanner.NewItemAdded += DeviceListScanner_NewItemAdded;
+            sendMessageButton.Click += SendMessageButton_Click;
+            discoverDeviceButton.Click += DiscoverDeviceButton_Click;
+            DeviceListScanner.AllItemDiscovered += DeviceListScanner_AllItemDiscovered;
         }
 
         protected override void OnPause()
         {
             base.OnPause();
-            mDiscoverButton.Click -= MDiscoverButton_Click;
-            mAdvertiseButton.Click -= MAdvertiseButton_Click;
-            DeviceListScanner.NewItemAdded -= DeviceListScanner_NewItemAdded;
-        }
-
-        void SetupChat()
-        {
-            //conversationArrayAdapter = new ArrayAdapter<string>(Activity, Resource.Layout.message);
-            //conversationView.Adapter = conversationArrayAdapter;
-
-            //outEditText.SetOnEditorActionListener(writeListener);
-            //sendButton.Click += (sender, e) =>
-            //{
-            //    var textView = View.FindViewById<TextView>(Resource.Id.edit_text_out);
-            //    var msg = textView.Text;
-            //    SendMessage(msg);
-            //};
-
-            chatService = new BluetoothChatService(this);
-            outStringBuffer = new StringBuilder("");
-        }
-
-        void SendMessage(String message)
-        {
-            if (chatService.GetState() != BluetoothChatService.STATE_CONNECTED)
-            {
-                Toast.MakeText(this, "Not connected to any device", ToastLength.Long).Show();
-                return;
-            }
-
-            if (message.Length > 0)
-            {
-                var bytes = Encoding.ASCII.GetBytes(message);
-                chatService.Write(bytes);
-            }
+            sendMessageButton.Click -= SendMessageButton_Click;
+            discoverDeviceButton.Click -= DiscoverDeviceButton_Click;
+            DeviceListScanner.AllItemDiscovered -= DeviceListScanner_AllItemDiscovered;
         }
 
         void ConnectDevice(string info, bool secure)
@@ -211,82 +146,35 @@ namespace BTShare2
         //    }
         //}
 
-        private void DeviceListScanner_NewItemAdded(object sender, EventArgs e)
+        private void DeviceListScanner_AllItemDiscovered(object sender, EventArgs e)
         {
             if (DeviceListScanner.newDevicesArrayAdapter.Find(x => x.Contains("OnePlus 6")) != null)
             {
                 ConnectDevice(DeviceListScanner.newDevicesArrayAdapter.Find(x => x.Contains("OnePlus 6")), false);
-                DeviceListScanner.NewItemAdded -= DeviceListScanner_NewItemAdded;
+                //DeviceListScanner.AllItemDiscovered -= DeviceListScanner_NewItemAdded;
             }
         }
 
-        private void MAdvertiseButton_Click(object sender, System.EventArgs e)
+        private void DiscoverDeviceButton_Click(object sender, System.EventArgs e)
         {
             //Configuring to get devices list
             DeviceListScanner deviceListScanner = new DeviceListScanner(bluetoothAdapter);
-
-            //Advertise();
         }
 
-        private void MDiscoverButton_Click(object sender, System.EventArgs e)
+        private void SendMessageButton_Click(object sender, System.EventArgs e)
         {
-            SendMessage("Hellodshgkjdshdfcksayhcujkasdhcjagcgyuahzschasgcyascgfagscvhasfcasfucgysakhcuigascygiygcugchsaygucsayugacsyguacsyguygucasyguacsyguscagyuascgyuscayguugidgiuuiacsuacsiuachuacshacshcsahacshuacsacsuiacsscahscaacacscashacshihacsicahisacsacsascacsuiacsuicascas");
-            //Discover();
-        }
+            var messageToSend = "Hellodshgkjdshdfcksayhcujkasdhcjagcgyuahzschasgcyascgfagscvhasfcasfucgysakhcuigascygiygcugchsaygucsayugacsyguacsyguygucasyguacsyguscagyuascgyuscayguugidgiuuiacsuacsiuachuacshacshcsahacshuacsacsuiacsscahscaacacscashacshihacsicahisacsacsascacsuiacsuicascas";
+            if (chatService.GetState() != Constants.STATE_CONNECTED)
+            {
+                Toast.MakeText(this, "Not connected to any device", ToastLength.Long).Show();
+                return;
+            }
 
-        //private void Discover()
-        //{
-        //    List<ScanFilter> filters = new List<ScanFilter>();
-
-        //    ScanFilter filter = new ScanFilter.Builder()
-        //            .SetServiceUuid(new ParcelUuid(UUID.FromString(UUIDString)))
-        //            .Build();
-        //    filters.Add(filter);
-
-        //    ScanSettings settings = new ScanSettings.Builder()
-        //            .SetScanMode(Android.Bluetooth.LE.ScanMode.LowLatency)
-        //            .Build();
-
-        //    MyScanCallback myScanCallback = new MyScanCallback(this);
-
-        //    mBluetoothLeScanner.StartScan(filters, settings, myScanCallback);
-
-        //    Action action = () =>
-        //    {
-        //        mBluetoothLeScanner.StopScan(myScanCallback);
-        //    };
-
-        //    mHandler.PostDelayed(action, 10000);
-        //}
-
-        private void Advertise()
-        {
-            BluetoothLeAdvertiser advertiser = BluetoothAdapter.DefaultAdapter.BluetoothLeAdvertiser;
-
-            AdvertiseSettings settings = new AdvertiseSettings.Builder()
-                    .SetAdvertiseMode(AdvertiseMode.LowLatency)
-                    .SetTxPowerLevel(AdvertiseTx.PowerHigh)
-                    .SetConnectable(false)
-                    .Build();
-
-            ParcelUuid pUuid = new ParcelUuid(UUID.FromString(UUIDString));
-
-            AdvertiseData data = new AdvertiseData.Builder()
-                    .SetIncludeDeviceName(true)
-                    .AddServiceUuid(pUuid)
-                    .AddServiceData(pUuid, Encoding.UTF8.GetBytes("Data send"))
-                    .Build();
-
-            MyAdvertiseCallback myAdvertiseCallback = new MyAdvertiseCallback();
-
-            advertiser.StartAdvertising(settings, data, myAdvertiseCallback);
-
-        }
-        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
-        {
-            Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-
-            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+            if (messageToSend.Length > 0)
+            {
+                var bytes = Encoding.ASCII.GetBytes(messageToSend);
+                chatService.Write(bytes);
+            }
         }
     }
 }

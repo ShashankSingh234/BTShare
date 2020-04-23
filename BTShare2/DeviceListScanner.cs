@@ -19,24 +19,20 @@ namespace BTShare2
         public const string EXTRA_DEVICE_ADDRESS = "device_address";
 
         public BluetoothAdapter btAdapter;
+        List<string> pairedDevicesArrayAdapter;
         public static List<string> newDevicesArrayAdapter;
 
-        public static event EventHandler NewItemAdded;
+        public static event EventHandler AllItemDiscovered;
 
         public DeviceListScanner(BluetoothAdapter btAdapter)
         {
-            List<string> pairedDevicesArrayAdapter = new List<string>();
+            pairedDevicesArrayAdapter = new List<string>();
             newDevicesArrayAdapter = new List<string>();
 
-            //DeviceListView_ItemClick();
-
-            // Get the local Bluetooth adapter
             this.btAdapter = btAdapter;
 
-            // Get a set of currently paired devices
             var pairedDevices = btAdapter.BondedDevices;
 
-            // If there are paired devices, add each on to the ArrayAdapter
             if (pairedDevices.Count > 0)
             {
                 foreach (var device in pairedDevices)
@@ -44,18 +40,14 @@ namespace BTShare2
                     pairedDevicesArrayAdapter.Add(device.Name + "\n" + device.Address);
                 }
             }
-            else
-            {
-                pairedDevicesArrayAdapter.Add("No device found");
-            }
 
-            DoDiscovery();
+            DiscoverNewDevices();
         }
 
         /// <summary>
         /// Start device discovery with the BluetoothAdapter
         /// </summary>
-        void DoDiscovery()
+        void DiscoverNewDevices()
         {
             // If we're already discovering, stop it
             if (btAdapter.IsDiscovering)
@@ -67,18 +59,18 @@ namespace BTShare2
             var x = btAdapter.StartDiscovery();
         }
 
-        void DeviceListView_ItemClick(object sender, AdapterView.ItemClickEventArgs e)
-        {
-            btAdapter.CancelDiscovery();
+        //void DeviceListView_ItemClick(object sender, AdapterView.ItemClickEventArgs e)
+        //{
+        //    btAdapter.CancelDiscovery();
 
-            // Get the device MAC address, which is the last 17 chars in the View
-            var info = ((TextView)e.View).Text;
-            var address = info.Substring(info.Length - 17);
+        //    // Get the device MAC address, which is the last 17 chars in the View
+        //    var info = ((TextView)e.View).Text;
+        //    var address = info.Substring(info.Length - 17);
 
-            // Create the result intent and include MAC address.
-            var intent = new Intent();
-            intent.PutExtra(EXTRA_DEVICE_ADDRESS, address);
-        }
+        //    // Create the result intent and include MAC address.
+        //    var intent = new Intent();
+        //    intent.PutExtra(EXTRA_DEVICE_ADDRESS, address);
+        //}
 
         public class DeviceDiscoveredReceiver : BroadcastReceiver
         {
@@ -99,14 +91,13 @@ namespace BTShare2
                     if (device.BondState != Bond.Bonded)
                     {
                         newDevicesArrayAdapter.Add(device.Name + "\n" + device.Address);
-                        NewItemAdded?.Invoke(null, EventArgs.Empty);
                     }
-                    // When discovery is finished, change the Activity title
                 }
                 else if (action == BluetoothAdapter.ActionDiscoveryFinished)
                 {
                     if (newDevicesArrayAdapter.Count == 0)
                     {
+                        AllItemDiscovered?.Invoke(null, EventArgs.Empty);
                         newDevicesArrayAdapter.Add("No device found");
                     }
                 }

@@ -1,78 +1,42 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-using Android.App;
-using Android.Content;
-using Android.OS;
-using Android.Runtime;
-using Android.Views;
-using Android.Widget;
+﻿using System.Text;
 using System.IO;
 using System.Runtime.CompilerServices;
 using Android.Bluetooth;
-using Android.OS;
 using Android.Util;
 using Java.Lang;
 using Java.Util;
+using BTShare2.Threads;
+using BTShare2.Helpers;
 
 namespace BTShare2.Services
 {
-    class BluetoothChatService
+    public class BluetoothChatService
     {
-        const string TAG = "BluetoothChatService";
-
-        const string NAME_SECURE = "BluetoothChatSecure";
-        const string NAME_INSECURE = "BluetoothChatInsecure";
-
-        static UUID MY_UUID_SECURE = UUID.FromString("fa87c0d0-afac-11de-8a39-0800200c9a66");
-        static UUID MY_UUID_INSECURE = UUID.FromString("8ce255c0-200a-11e0-ac64-0800200c9a66");
-
-        BluetoothAdapter btAdapter;
-        MainActivity mainActivity;
+        public BluetoothAdapter btAdapter;
+        public MainActivity mainActivity;
         AcceptThread secureAcceptThread;
         AcceptThread insecureAcceptThread;
-        ConnectThread connectThread;
+        public ConnectThread connectThread;
         ConnectedThread connectedThread;
-        int state;
+        public int state;
         int newState;
-
-        public const int STATE_NONE = 0;       // we're doing nothing
-        public const int STATE_LISTEN = 1;     // now listening for incoming connections
-        public const int STATE_CONNECTING = 2; // now initiating an outgoing connection
-        public const int STATE_CONNECTED = 3;  // now connected to a remote device
-
-
-        public const int MESSAGE_STATE_CHANGE = 1;
-        public const int MESSAGE_READ = 2;
-        public const int MESSAGE_WRITE = 3;
-        public const int MESSAGE_DEVICE_NAME = 4;
-        public const int MESSAGE_TOAST = 5;
-
-        public const string DEVICE_NAME = "device_name";
-        public const string TOAST = "toast";
 
         /// <summary>
         /// Constructor. Prepares a new BluetoothChat session.
         /// </summary>
-        /// <param name='handler'>
-        /// A Handler to send messages back to the UI Activity.
-        /// </param>
         public BluetoothChatService(MainActivity mainActivity)
         {
             btAdapter = BluetoothAdapter.DefaultAdapter;
-            state = STATE_NONE;
+            state = Constants.STATE_NONE;
             newState = state;
             this.mainActivity = mainActivity;
         }
 
         [MethodImpl(MethodImplOptions.Synchronized)]
-        void UpdateUserInterfaceTitle()
+        void UpdateConnectionState()
         {
             state = GetState();
             newState = state;
-            //mainActivity.ObtainMessage(MESSAGE_STATE_CHANGE, newState, -1).SendToTarget();
         }
 
         /// <summary>
@@ -112,10 +76,8 @@ namespace BTShare2.Services
                 insecureAcceptThread.Start();
             }
 
-            UpdateUserInterfaceTitle();
+            UpdateConnectionState();
         }
-
-
 
         /// <summary>
         /// Start the ConnectThread to initiate a connection to a remote device.
@@ -126,7 +88,7 @@ namespace BTShare2.Services
         [MethodImpl(MethodImplOptions.Synchronized)]
         public void Connect(BluetoothDevice device, bool secure)
         {
-            if (state == STATE_CONNECTING)
+            if (state == Constants.STATE_CONNECTING)
             {
                 if (connectThread != null)
                 {
@@ -146,7 +108,7 @@ namespace BTShare2.Services
             connectThread = new ConnectThread(device, this, secure);
             connectThread.Start();
 
-            UpdateUserInterfaceTitle();
+            UpdateConnectionState();
         }
 
         /// <summary>
@@ -175,7 +137,6 @@ namespace BTShare2.Services
                 connectedThread = null;
             }
 
-
             if (secureAcceptThread != null)
             {
                 secureAcceptThread.Cancel();
@@ -192,14 +153,7 @@ namespace BTShare2.Services
             connectedThread = new ConnectedThread(socket, this, socketType);
             connectedThread.Start();
 
-            // Send the name of the connected device back to the UI Activity
-            //var msg = mainActivity.ObtainMessage(MESSAGE_DEVICE_NAME);
-            //Bundle bundle = new Bundle();
-            //bundle.PutString(DEVICE_NAME, device.Name);
-            //msg.Data = bundle;
-            //mainActivity.SendMessage(msg);
-
-            UpdateUserInterfaceTitle();
+            UpdateConnectionState();
         }
 
         /// <summary>
@@ -232,8 +186,8 @@ namespace BTShare2.Services
                 insecureAcceptThread = null;
             }
 
-            state = STATE_NONE;
-            UpdateUserInterfaceTitle();
+            state = Constants.STATE_NONE;
+            UpdateConnectionState();
         }
 
         /// <summary>
@@ -249,7 +203,7 @@ namespace BTShare2.Services
             // Synchronize a copy of the ConnectedThread
             lock (this)
             {
-                if (state != STATE_CONNECTED)
+                if (state != Constants.STATE_CONNECTED)
                 {
                     return;
                 }
@@ -262,15 +216,10 @@ namespace BTShare2.Services
         /// <summary>
         /// Indicate that the connection attempt failed and notify the UI Activity.
         /// </summary>
-        void ConnectionFailed()
+        public void ConnectionFailed()
         {
-            state = STATE_LISTEN;
+            state = Constants.STATE_LISTEN;
 
-            //var msg = mainActivity.ObtainMessage(MESSAGE_TOAST);
-            //var bundle = new Bundle();
-            //bundle.PutString(TOAST, "Unable to connect device");
-            //msg.Data = bundle;
-            //mainActivity.SendMessage(msg);
             Start();
         }
 
@@ -279,307 +228,9 @@ namespace BTShare2.Services
         /// </summary>
         public void ConnectionLost()
         {
-            //var msg = mainActivity.ObtainMessage(MESSAGE_TOAST);
-            //var bundle = new Bundle();
-            //bundle.PutString(TOAST, "Unable to connect device.");
-            //msg.Data = bundle;
-            //mainActivity.SendMessage(msg);
-
-            state = STATE_NONE;
-            UpdateUserInterfaceTitle();
+            state = Constants.STATE_NONE;
+            UpdateConnectionState();
             this.Start();
-        }
-
-        /// <summary>
-        /// This thread runs while listening for incoming connections. It behaves
-        /// like a server-side client. It runs until a connection is accepted
-        /// (or until cancelled).
-        /// </summary>
-        class AcceptThread : Thread
-        {
-            // The local server socket
-            BluetoothServerSocket serverSocket;
-            string socketType;
-            BluetoothChatService service;
-
-            public AcceptThread(BluetoothChatService service, bool secure)
-            {
-                BluetoothServerSocket tmp = null;
-                socketType = secure ? "Secure" : "Insecure";
-                this.service = service;
-
-                try
-                {
-                    if (secure)
-                    {
-                        tmp = service.btAdapter.ListenUsingRfcommWithServiceRecord(NAME_SECURE, MY_UUID_SECURE);
-                    }
-                    else
-                    {
-                        tmp = service.btAdapter.ListenUsingInsecureRfcommWithServiceRecord(NAME_INSECURE, MY_UUID_INSECURE);
-                    }
-
-                }
-                catch (Java.IO.IOException e)
-                {
-                    Log.Error(TAG, "listen() failed", e);
-                }
-                serverSocket = tmp;
-                service.state = STATE_LISTEN;
-            }
-
-            public override void Run()
-            {
-                Name = $"AcceptThread_{socketType}";
-                BluetoothSocket socket = null;
-
-                while (service.GetState() != STATE_CONNECTED)
-                {
-                    try
-                    {
-                        socket = serverSocket.Accept();
-                    }
-                    catch (Java.IO.IOException e)
-                    {
-                        Log.Error(TAG, "accept() failed", e);
-                        break;
-                    }
-
-                    if (socket != null)
-                    {
-                        lock (this)
-                        {
-                            switch (service.GetState())
-                            {
-                                case STATE_LISTEN:
-                                case STATE_CONNECTING:
-                                    // Situation normal. Start the connected thread.
-                                    service.Connected(socket, socket.RemoteDevice, socketType);
-                                    break;
-                                case STATE_NONE:
-                                case STATE_CONNECTED:
-                                    try
-                                    {
-                                        socket.Close();
-                                    }
-                                    catch (Java.IO.IOException e)
-                                    {
-                                        Log.Error(TAG, "Could not close unwanted socket", e);
-                                    }
-                                    break;
-                            }
-                        }
-                    }
-                }
-            }
-
-            public void Cancel()
-            {
-                try
-                {
-                    serverSocket.Close();
-                }
-                catch (Java.IO.IOException e)
-                {
-                    Log.Error(TAG, "close() of server failed", e);
-                }
-            }
-        }
-
-        /// <summary>
-        /// This thread runs while attempting to make an outgoing connection
-        /// with a device. It runs straight through; the connection either
-        /// succeeds or fails.
-        /// </summary>
-        protected class ConnectThread : Thread
-        {
-            BluetoothSocket socket;
-            BluetoothDevice device;
-            BluetoothChatService service;
-            string socketType;
-
-            public ConnectThread(BluetoothDevice device, BluetoothChatService service, bool secure)
-            {
-                this.device = device;
-                this.service = service;
-                BluetoothSocket tmp = null;
-                socketType = secure ? "Secure" : "Insecure";
-
-                try
-                {
-                    if (secure)
-                    {
-                        tmp = device.CreateRfcommSocketToServiceRecord(MY_UUID_SECURE);
-                    }
-                    else
-                    {
-                        tmp = device.CreateInsecureRfcommSocketToServiceRecord(MY_UUID_INSECURE);
-                    }
-
-                }
-                catch (Java.IO.IOException e)
-                {
-                    Log.Error(TAG, "create() failed", e);
-                }
-                socket = tmp;
-                service.state = STATE_CONNECTING;
-            }
-
-            public override void Run()
-            {
-                Name = $"ConnectThread_{socketType}";
-
-                // Always cancel discovery because it will slow down connection
-                service.btAdapter.CancelDiscovery();
-
-                // Make a connection to the BluetoothSocket
-                try
-                {
-                    // This is a blocking call and will only return on a
-                    // successful connection or an exception
-                    socket.Connect();
-                }
-                catch (Java.IO.IOException e)
-                {
-                    // Close the socket
-                    try
-                    {
-                        socket.Close();
-                    }
-                    catch (Java.IO.IOException e2)
-                    {
-                        Log.Error(TAG, $"unable to close() {socketType} socket during connection failure.", e2);
-                    }
-
-                    // Start the service over to restart listening mode
-                    service.ConnectionFailed();
-                    return;
-                }
-
-                // Reset the ConnectThread because we're done
-                lock (this)
-                {
-                    service.connectThread = null;
-                }
-
-                // Start the connected thread
-                service.Connected(socket, device, socketType);
-            }
-
-            public void Cancel()
-            {
-                try
-                {
-                    socket.Close();
-                }
-                catch (Java.IO.IOException e)
-                {
-                    Log.Error(TAG, "close() of connect socket failed", e);
-                }
-            }
-        }
-
-        /// <summary>
-        /// This thread runs during a connection with a remote device.
-        /// It handles all incoming and outgoing transmissions.
-        /// </summary>
-        class ConnectedThread : Thread
-        {
-            BluetoothSocket socket;
-            Stream inStream;
-            Stream outStream;
-            BluetoothChatService service;
-
-            public ConnectedThread(BluetoothSocket socket, BluetoothChatService service, string socketType)
-            {
-                Log.Debug(TAG, $"create ConnectedThread: {socketType}");
-                this.socket = socket;
-                this.service = service;
-                Stream tmpIn = null;
-                Stream tmpOut = null;
-
-                // Get the BluetoothSocket input and output streams
-                try
-                {
-                    tmpIn = socket.InputStream;
-                    tmpOut = socket.OutputStream;
-                }
-                catch (Java.IO.IOException e)
-                {
-                    Log.Error(TAG, "temp sockets not created", e);
-                }
-
-                inStream = tmpIn;
-                outStream = tmpOut;
-                service.state = STATE_CONNECTED;
-            }
-
-            public override void Run()
-            {
-                Log.Info(TAG, "BEGIN mConnectedThread");
-                byte[] buffer = new byte[1024];
-                int bytes;
-
-                // Keep listening to the InputStream while connected
-                while (service.GetState() == STATE_CONNECTED)
-                {
-                    try
-                    {
-                        // Read from the InputStream
-                        bytes = inStream.Read(buffer, 0, buffer.Length);
-                        var t = Encoding.ASCII.GetString(buffer);
-                        service.mainActivity.RunOnUiThread(() =>
-                        {
-                            service.mainActivity.mText.Text = t;
-                        });
-                        // Send the obtained bytes to the UI Activity
-                        //service.mainActivity
-                        //       .ObtainMessage(MESSAGE_READ, bytes, -1, buffer)
-                        //       .SendToTarget();
-                    }
-                    catch (Java.IO.IOException e)
-                    {
-                        Log.Error(TAG, "disconnected", e);
-                        service.ConnectionLost();
-                        break;
-                    }
-                }
-            }
-
-            /// <summary>
-            /// Write to the connected OutStream.
-            /// </summary>
-            /// <param name='buffer'>
-            /// The bytes to write
-            /// </param>
-            public void Write(byte[] buffer)
-            {
-                try
-                {
-                    outStream.Write(buffer, 0, buffer.Length);
-
-                    // Share the sent message back to the UI Activity
-                    //service.mainActivity
-                    //       .ObtainMessage(MESSAGE_WRITE, -1, -1, buffer)
-                    //       .SendToTarget();
-                }
-                catch (Java.IO.IOException e)
-                {
-                    Log.Error(TAG, "Exception during write", e);
-                }
-            }
-
-            public void Cancel()
-            {
-                try
-                {
-                    socket.Close();
-                }
-                catch (Java.IO.IOException e)
-                {
-                    Log.Error(TAG, "close() of connect socket failed", e);
-                }
-            }
         }
     }
 }

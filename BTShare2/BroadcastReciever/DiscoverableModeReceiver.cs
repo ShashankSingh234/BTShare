@@ -21,7 +21,6 @@ namespace BTShare2.BroadcastReciever
     {
         public event EventHandler<BluetoothDiscoveryModeArgs> BluetoothDiscoveryModeChanged;
 
-
         public override void OnReceive(Context context, Intent intent)
         {
             var currentScanMode = intent.GetIntExtra(BluetoothAdapter.ExtraScanMode, -1);
