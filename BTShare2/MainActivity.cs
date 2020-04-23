@@ -13,6 +13,7 @@ using System;
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Crashes;
 using Microsoft.AppCenter.Analytics;
+using Android.Content;
 
 namespace BTShare2
 {
@@ -27,10 +28,19 @@ namespace BTShare2
         private Button mAdvertiseButton;
         private Button mDiscoverButton;
 
-        private BluetoothLeScanner mBluetoothLeScanner;
+        BluetoothAdapter bluetoothAdapter;
+
+        BluetoothLeScanner bluetoothLeScanner;
+        BluetoothLeAdvertiser bluetoothLeAdvertiser;
+
+        MyScanCallback myScanCallback;
+        MyAdvertiseCallback myAdvertiseCallback;
+
         private Handler mHandler = new Handler();
 
         public const string UUIDString = "0000b81d-0000-1000-8000-00805f9b34fb";
+
+        int REQUEST_ENABLE_BT = 1;
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
@@ -48,18 +58,26 @@ namespace BTShare2
             mDiscoverButton = FindViewById<Button>(Resource.Id.discover_btn);
             mAdvertiseButton = FindViewById<Button>(Resource.Id.advertise_btn);
 
-            mBluetoothLeScanner = BluetoothAdapter.DefaultAdapter.BluetoothLeScanner;
+            bluetoothAdapter = BluetoothAdapter.DefaultAdapter;
 
-            if (!BluetoothAdapter.DefaultAdapter.IsMultipleAdvertisementSupported)
+            if (bluetoothAdapter == null)
             {
-                Toast.MakeText(this, "Multiple advertisement not supported", ToastLength.Long).Show();
-                mAdvertiseButton.Enabled = false;
-                mDiscoverButton.Enabled = false;
+                Toast.MakeText(this, "Bluetooth is not available.", ToastLength.Long).Show();
+                FinishAndRemoveTask();
             }
 
-
+            bluetoothLeScanner = BluetoothAdapter.DefaultAdapter.BluetoothLeScanner;
         }
 
+        protected override void OnStart()
+        {
+            base.OnStart();
+            if (!bluetoothAdapter.IsEnabled)
+            {
+                var enableIntent = new Intent(BluetoothAdapter.ActionRequestEnable);
+                StartActivityForResult(enableIntent, REQUEST_ENABLE_BT);
+            }
+        }
 
         protected override void OnResume()
         {
@@ -73,6 +91,28 @@ namespace BTShare2
             base.OnPause();
             mDiscoverButton.Click -= MDiscoverButton_Click;
             mAdvertiseButton.Click -= MAdvertiseButton_Click;
+        }
+
+        protected override void OnDestroy()
+        {
+            base.OnDestroy();
+            
+            if (bluetoothLeAdvertiser != null && myAdvertiseCallback != null)
+                bluetoothLeAdvertiser.StopAdvertising(myAdvertiseCallback);
+
+            if (bluetoothLeScanner != null && myScanCallback != null)
+                bluetoothLeScanner.StopScan(myScanCallback);
+        }
+
+        protected override void OnActivityResult(int requestCode, [GeneratedEnum] Result resultCode, Intent data)
+        {
+            base.OnActivityResult(requestCode, resultCode, data);
+            if (requestCode == REQUEST_ENABLE_BT && !bluetoothAdapter.IsMultipleAdvertisementSupported)
+            {
+                Toast.MakeText(this, "Multiple advertisement not supported", ToastLength.Long).Show();
+                mAdvertiseButton.Enabled = false;
+                mDiscoverButton.Enabled = false;
+            }
         }
 
         private void MAdvertiseButton_Click(object sender, System.EventArgs e)
@@ -94,29 +134,42 @@ namespace BTShare2
                     .Build();
             filters.Add(filter);
 
-            ScanSettings settings = new ScanSettings.Builder()
-                    .SetScanMode(Android.Bluetooth.LE.ScanMode.LowLatency)
-                    .Build();
+            //ScanSettings settings = new ScanSettings.Builder()
+            //        .SetScanMode(Android.Bluetooth.LE.ScanMode.LowLatency)
+            //        .Build();
 
-            MyScanCallback myScanCallback = new MyScanCallback(this);
+            ScanSettings.Builder builder = new ScanSettings.Builder();
+            builder.SetScanMode(Android.Bluetooth.LE.ScanMode.LowLatency);
 
-            mBluetoothLeScanner.StartScan(filters, settings, myScanCallback);
-
-            Action action = () =>
+            if (Build.VERSION.SdkInt >= BuildVersionCodes.M /* Marshmallow */)
             {
-                mBluetoothLeScanner.StopScan(myScanCallback);
-            };
+                builder.SetMatchMode(BluetoothScanMatchMode.Aggressive);
+                builder.SetNumOfMatches((int)BluetoothScanMatchNumber.MaxAdvertisement);
+                builder.SetCallbackType(ScanCallbackType.AllMatches);
+            }
 
-            mHandler.PostDelayed(action, 10000);
+            var settings = builder.Build();
+
+            myScanCallback = new MyScanCallback(this);
+
+            bluetoothLeScanner.StartScan(filters, settings, myScanCallback);
+
+            //Action action = () =>
+            //{
+            //    mBluetoothLeScanner.StopScan(myScanCallback);
+            //};
+
+            //mHandler.PostDelayed(action, 10000);
         }
 
         private void Advertise()
         {
-            BluetoothLeAdvertiser advertiser = BluetoothAdapter.DefaultAdapter.BluetoothLeAdvertiser;
+            bluetoothLeAdvertiser = BluetoothAdapter.DefaultAdapter.BluetoothLeAdvertiser;
 
             AdvertiseSettings settings = new AdvertiseSettings.Builder()
                     .SetAdvertiseMode(AdvertiseMode.LowLatency)
                     .SetTxPowerLevel(AdvertiseTx.PowerHigh)
+                    .SetTimeout(0)
                     .SetConnectable(false)
                     .Build();
 
@@ -128,16 +181,9 @@ namespace BTShare2
                     .AddServiceData(pUuid, Encoding.UTF8.GetBytes("Data send"))
                     .Build();
 
-            MyAdvertiseCallback myAdvertiseCallback = new MyAdvertiseCallback();
+            myAdvertiseCallback = new MyAdvertiseCallback();
 
-            advertiser.StartAdvertising(settings, data, myAdvertiseCallback);
-
-        }
-        public override void OnRequestPermissionsResult(int requestCode, string[] permissions, [GeneratedEnum] Android.Content.PM.Permission[] grantResults)
-        {
-            Xamarin.Essentials.Platform.OnRequestPermissionsResult(requestCode, permissions, grantResults);
-
-            base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+            bluetoothLeAdvertiser.StartAdvertising(settings, data, myAdvertiseCallback);
         }
     }
 
