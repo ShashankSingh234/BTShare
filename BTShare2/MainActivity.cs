@@ -6,14 +6,14 @@ using Android.Widget;
 using Android.Bluetooth.LE;
 using System.Collections.Generic;
 using Android.Bluetooth;
-using Java.Util;
-using System.Text;
-using Android.Text;
-using System;
 using Microsoft.AppCenter;
 using Microsoft.AppCenter.Crashes;
 using Microsoft.AppCenter.Analytics;
 using Android.Content;
+using BTShare2.Helpers;
+using BTShare2.Services;
+using BTShare2.Callbacks;
+using System.Text;
 
 namespace BTShare2
 {
@@ -38,9 +38,13 @@ namespace BTShare2
 
         private Handler mHandler = new Handler();
 
-        public const string UUIDString = "0000b81d-0000-1000-8000-00805f9b34fb";
+        BluetoothChatService bluetoothChatService;
 
         int REQUEST_ENABLE_BT = 1;
+
+        public BluetoothGatt bluetoothGatt;
+        public BluetoothGattServer bluetoothGattServer;
+        private BluetoothManager mBluetoothManager;
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
@@ -66,7 +70,11 @@ namespace BTShare2
                 FinishAndRemoveTask();
             }
 
+            bluetoothChatService = new BluetoothChatService(this);
+
             bluetoothLeScanner = BluetoothAdapter.DefaultAdapter.BluetoothLeScanner;
+
+            mBluetoothManager = (BluetoothManager)GetSystemService(Context.BluetoothService);
         }
 
         protected override void OnStart()
@@ -84,6 +92,14 @@ namespace BTShare2
             base.OnResume();
             mDiscoverButton.Click += MDiscoverButton_Click;
             mAdvertiseButton.Click += MAdvertiseButton_Click;
+
+            //if (bluetoothChatService != null)
+            //{
+            //    if (bluetoothChatService.GetState() == Constants.STATE_NONE)
+            //    {
+            //        bluetoothChatService.Start();
+            //    }
+            //}
         }
 
         protected override void OnPause()
@@ -96,7 +112,7 @@ namespace BTShare2
         protected override void OnDestroy()
         {
             base.OnDestroy();
-            
+
             if (bluetoothLeAdvertiser != null && myAdvertiseCallback != null)
                 bluetoothLeAdvertiser.StopAdvertising(myAdvertiseCallback);
 
@@ -115,6 +131,30 @@ namespace BTShare2
             }
         }
 
+        private BluetoothGattService CreateService()
+        {
+            BluetoothGattService service = new BluetoothGattService(Constants.MY_UUID, GattServiceType.Primary);
+
+            // Counter characteristic (read-only, supports subscriptions)
+            BluetoothGattCharacteristic counter = new BluetoothGattCharacteristic(Constants.CHARACTERISTIC_COUNTER_UUID, GattProperty.Read | GattProperty.Notify, GattPermission.Read);
+            BluetoothGattDescriptor counterConfig = new BluetoothGattDescriptor(Constants.DESCRIPTOR_CONFIG_UUID, GattDescriptorPermission.Read | GattDescriptorPermission.Write);
+            counter.AddDescriptor(counterConfig);
+
+            // Interactor characteristic
+            BluetoothGattCharacteristic interactor = new BluetoothGattCharacteristic(Constants.CHARACTERISTIC_INTERACTOR_UUID, GattProperty.WriteNoResponse, GattPermission.Write);
+
+            service.AddCharacteristic(counter);
+            service.AddCharacteristic(interactor);
+            return service;
+        }
+
+        public void ConnectDevice(string info, bool secure)
+        {
+            var address = info.Substring(info.Length - 17);//data.Extras.GetString(DeviceListScanner.EXTRA_DEVICE_ADDRESS);
+            var device = bluetoothAdapter.GetRemoteDevice(address);
+            bluetoothChatService.Connect(device, secure);
+        }
+
         private void MAdvertiseButton_Click(object sender, System.EventArgs e)
         {
             Advertise();
@@ -130,7 +170,7 @@ namespace BTShare2
             List<ScanFilter> filters = new List<ScanFilter>();
 
             ScanFilter filter = new ScanFilter.Builder()
-                    .SetServiceUuid(new ParcelUuid(UUID.FromString(UUIDString)))
+                    .SetServiceUuid(new ParcelUuid(Constants.MY_UUID))
                     .Build();
             filters.Add(filter);
 
@@ -153,13 +193,6 @@ namespace BTShare2
             myScanCallback = new MyScanCallback(this);
 
             bluetoothLeScanner.StartScan(filters, settings, myScanCallback);
-
-            //Action action = () =>
-            //{
-            //    mBluetoothLeScanner.StopScan(myScanCallback);
-            //};
-
-            //mHandler.PostDelayed(action, 10000);
         }
 
         private void Advertise()
@@ -170,10 +203,10 @@ namespace BTShare2
                     .SetAdvertiseMode(AdvertiseMode.LowLatency)
                     .SetTxPowerLevel(AdvertiseTx.PowerHigh)
                     .SetTimeout(0)
-                    .SetConnectable(false)
+                    .SetConnectable(true)
                     .Build();
 
-            ParcelUuid pUuid = new ParcelUuid(UUID.FromString(UUIDString));
+            ParcelUuid pUuid = new ParcelUuid(Constants.MY_UUID);
 
             AdvertiseData data = new AdvertiseData.Builder()
                     .SetIncludeDeviceName(true)
@@ -184,60 +217,11 @@ namespace BTShare2
             myAdvertiseCallback = new MyAdvertiseCallback();
 
             bluetoothLeAdvertiser.StartAdvertising(settings, data, myAdvertiseCallback);
-        }
-    }
 
-    internal class MyScanCallback : ScanCallback
-    {
-        MainActivity mainActivity;
+            //MyBluetoothGattServerCallback myBluetoothGattServerCallback = new MyBluetoothGattServerCallback(this);
 
-        public MyScanCallback(MainActivity mainActivity)
-        {
-            this.mainActivity = mainActivity;
-        }
-
-        public override void OnScanResult([GeneratedEnum] ScanCallbackType callbackType, ScanResult result)
-        {
-            base.OnScanResult(callbackType, result);
-
-            if (result == null || result.Device == null || TextUtils.IsEmpty(result.Device.Name))
-                return;
-
-            StringBuilder builder = new StringBuilder(result.Device.Name);
-            builder.Append(" ").Append(result.Device.Address);
-            byte[] data;
-            result.ScanRecord.ServiceData.TryGetValue(result.ScanRecord.ServiceUuids[0], out data);
-            builder.Append("\n").Append(Encoding.UTF8.GetString(data));
-
-            mainActivity.success++;
-            mainActivity.mSuccessCountText.Text = mainActivity.success.ToString();
-            mainActivity.mText.Text = mainActivity.mText.Text + builder.ToString();
-        }
-
-        public override void OnBatchScanResults(IList<ScanResult> results)
-        {
-            base.OnBatchScanResults(results);
-        }
-
-        public override void OnScanFailed([GeneratedEnum] ScanFailure errorCode)
-        {
-            base.OnScanFailed(errorCode);
-            mainActivity.failed++;
-            mainActivity.mFailedCountText.Text = mainActivity.failed.ToString();
-        }
-    }
-
-    internal class MyAdvertiseCallback : AdvertiseCallback
-    {
-        public override void OnStartSuccess(AdvertiseSettings settingsInEffect)
-        {
-            base.OnStartSuccess(settingsInEffect);
-        }
-
-        public override void OnStartFailure([GeneratedEnum] AdvertiseFailure errorCode)
-        {
-            base.OnStartFailure(errorCode);
-            //Log.e("BLE", "Advertising onStartFailure: " + errorCode);
+            //bluetoothGattServer = mBluetoothManager.OpenGattServer(this, myBluetoothGattServerCallback);
+            //bluetoothGattServer.AddService(CreateService());
         }
     }
 }

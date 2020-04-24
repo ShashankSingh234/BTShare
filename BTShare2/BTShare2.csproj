@@ -69,9 +69,18 @@
     <Reference Include="System.Numerics.Vectors" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Callbacks\MyAdvertiseCallback.cs" />
+    <Compile Include="Callbacks\MyBluetoothGattCallback.cs" />
+    <Compile Include="Callbacks\MyBluetoothGattServerCallback.cs" />
+    <Compile Include="Callbacks\MyScanCallback.cs" />
+    <Compile Include="Helpers\Constants.cs" />
     <Compile Include="MainActivity.cs" />
     <Compile Include="Resources\Resource.designer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\BluetoothChatService.cs" />
+    <Compile Include="Threads\AcceptThread.cs" />
+    <Compile Include="Threads\ConnectedThread.cs" />
+    <Compile Include="Threads\ConnectThread.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\AboutResources.txt" />
