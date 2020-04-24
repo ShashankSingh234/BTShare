@@ -1,75 +1,181 @@
-﻿//using System;
-//using System.Collections.Generic;
-//using System.Linq;
-//using System.Text;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
-//using Android.App;
-//using Android.Bluetooth;
-//using Android.Content;
-//using Android.OS;
-//using Android.Runtime;
-//using Android.Views;
-//using Android.Widget;
+using Android.App;
+using Android.Bluetooth;
+using Android.Content;
+using Android.OS;
+using Android.Runtime;
+using Android.Views;
+using Android.Widget;
+using BTShare2.Helpers;
 
-//namespace BTShare2.Callbacks
-//{
-//    internal class MyBluetoothGattCallback : BluetoothGattCallback
-//    {
-//        //BluetoothGattCharacteristic characteristic;
+namespace BTShare2.Callbacks
+{
+    public class MyBluetoothGattCallback : BluetoothGattCallback
+    {
+        //BluetoothGattCharacteristic characteristic;
+        MainActivity mainActivity;
+        public MyBluetoothGattCallback(MainActivity mainActivity)
+        {
+            this.mainActivity = mainActivity;
+        }
 
-//        public override void OnConnectionStateChange(BluetoothGatt gatt, [GeneratedEnum] GattStatus status, [GeneratedEnum] ProfileState newState)
-//        {
-//            base.OnConnectionStateChange(gatt, status, newState);
+        public override void OnConnectionStateChange(BluetoothGatt gatt, [GeneratedEnum] GattStatus status, [GeneratedEnum] ProfileState newState)
+        {
+            base.OnConnectionStateChange(gatt, status, newState);
 
-//            if (newState == ProfileState.Connected)
-//            {
-//                //Log.i(TAG, "Connected to GATT server.");
-//                gatt.DiscoverServices();
-//            }
-//            else if (newState == ProfileState.Disconnected)
-//            {
+            if (newState == ProfileState.Connected)
+            {
+                mainActivity.RunOnUiThread(() =>
+                {
+                    mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local connected successfully";
+                });
+                //Log.i(TAG, "Connected to GATT server.");
+                gatt.DiscoverServices();
+            }
+            else if (newState == ProfileState.Disconnected)
+            {
+                mainActivity.RunOnUiThread(() =>
+                {
+                    mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local disconnected";
+                });
+                DisconnectGattServer();
+                //Log.i(TAG, "Disconnected from GATT server.");
+            }
+            else
+            {
+                DisconnectGattServer();
+            }
+            //byte[] newValue = characteristic.GetValue();
+            //if (newState == ProfileState.Connected)
+            //{
+            //    gatt.DiscoverServices();
+            //}
+        }
 
-//                //Log.i(TAG, "Disconnected from GATT server.");
-//            }
+        public override void OnServicesDiscovered(BluetoothGatt gatt, [GeneratedEnum] GattStatus status)
+        {
+            base.OnServicesDiscovered(gatt, status);
 
-//            byte[] newValue = characteristic.GetValue();
-//            //if (newState == ProfileState.Connected)
-//            //{
-//            //    gatt.DiscoverServices();
-//            //}
-//        }
+            mainActivity.RunOnUiThread(() =>
+            {
+                mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local discovered called";
+            });
 
-//        public override void OnServicesDiscovered(BluetoothGatt gatt, [GeneratedEnum] GattStatus status)
-//        {
-//            base.OnServicesDiscovered(gatt, status);
+            if (status != GattStatus.Success)
+                return;
 
-//            if (status != GattStatus.Success)
-//                return;
+            mainActivity.RunOnUiThread(() =>
+            {
+                mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local discovered successfully";
+            });
 
-//            var characteristic = gatt.GetService(Constants.MY_UUID).GetCharacteristic(Constants.CHARACTERISTIC_COUNTER_UUID);
+            var characteristic = gatt.GetService(Constants.MY_UUID)
+                  .GetCharacteristic(Constants.MY_UUID);
 
-//            gatt.SetCharacteristicNotification(characteristic, true);
+            characteristic.WriteType = GattWriteType.Default;
+            //var t = gatt.ReadCharacteristic(characteristic);
 
-//            BluetoothGattDescriptor descriptor = characteristic.GetDescriptor(Constants.DESCRIPTOR_CONFIG_UUID);
+            var mInitialized = gatt.SetCharacteristicNotification(characteristic, true);
 
-//            descriptor.SetValue(BluetoothGattDescriptor.EnableNotificationValue);
-//            gatt.WriteDescriptor(descriptor);
-//        }
+            //BluetoothGattDescriptor descriptor = characteristic.GetDescriptor(Constants.MY_UUID);
 
-//        public override void OnDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, [GeneratedEnum] GattStatus status)
-//        {
-//            base.OnDescriptorWrite(gatt, descriptor, status);
-//            if (Constants.DESCRIPTOR_CONFIG_UUID.Equals(descriptor.Uuid))
-//            {
-//                BluetoothGattCharacteristic characteristic = gatt.GetService(Constants.MY_UUID)
-//                  .getCharacteristic(Constants.CHARACTERISTIC_COUNTER_UUID);
-//                gatt.ReadCharacteristic(characteristic);
-//            }
-//        }
+            //byte[] writeValue = Encoding.UTF8.GetBytes("Hello from reciever");
 
-//        public override void OnDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, [GeneratedEnum] GattStatus status)
-//        {
-//            base.OnDescriptorRead(gatt, descriptor, status);
-//        }
-//    }
-//}
+            //descriptor.SetValue(writeValue);
+            //gatt.WriteDescriptor(descriptor);
+
+            var t = Encoding.UTF8.GetBytes("Hello from client");
+            characteristic.SetValue(t);
+
+            var success = mainActivity.bluetoothGatt.WriteCharacteristic(characteristic);
+        }
+
+        //public override void OnDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, [GeneratedEnum] GattStatus status)
+        //{
+        //    base.OnDescriptorWrite(gatt, descriptor, status);
+        //    if (Constants.MY_UUID.Equals(descriptor.Uuid))
+        //    {
+        //        BluetoothGattCharacteristic characteristic = gatt.GetService(Constants.MY_UUID)
+        //          .GetCharacteristic(Constants.MY_UUID);
+        //        var t = gatt.ReadCharacteristic(characteristic);
+        //    }
+        //}
+
+        //public override void OnCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, [GeneratedEnum] GattStatus status)
+        //{
+        //    base.OnCharacteristicRead(gatt, characteristic, status);
+
+        //    mainActivity.RunOnUiThread(() =>
+        //    {
+        //        mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local characterstic read";
+        //    });
+
+        //    byte[] data = characteristic.GetValue();
+        //    if (data != null)
+        //    {
+        //        var value = Encoding.UTF8.GetString(data);
+        //        mainActivity.RunOnUiThread(() =>
+        //        {
+        //            mainActivity.mText.Text = mainActivity.mText.Text + " " + value;
+        //        });
+        //    }
+        //    else
+        //    {
+        //        mainActivity.RunOnUiThread(() =>
+        //        {
+        //            mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Recieved null data";
+        //        });
+        //    }
+        //}
+
+        //public override void OnCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic)
+        //{
+        //    base.OnCharacteristicChanged(gatt, characteristic);
+        //}
+
+        //public override void OnDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, [GeneratedEnum] GattStatus status)
+        //{
+        //    base.OnDescriptorRead(gatt, descriptor, status);
+        //}
+
+        public override void OnCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic)
+        {
+            base.OnCharacteristicChanged(gatt, characteristic);
+
+            mainActivity.RunOnUiThread(() =>
+            {
+                mainActivity.logTextView.Text = mainActivity.logTextView.Text + "On Characteristic changed";
+            });
+
+            var byteRecieved = characteristic.GetValue();
+            if (byteRecieved != null)
+            {
+                var value = Encoding.UTF8.GetString(byteRecieved);
+                mainActivity.RunOnUiThread(() =>
+                {
+                    mainActivity.mText.Text = mainActivity.mText.Text + " " + value;
+                });
+            }
+            else
+            {
+                mainActivity.RunOnUiThread(() =>
+                {
+                    mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Recieved null data";
+                });
+            }
+        }
+
+        void DisconnectGattServer()
+        {
+            if (mainActivity.bluetoothGatt != null)
+            {
+                mainActivity.bluetoothGatt.Disconnect();
+                mainActivity.bluetoothGatt.Close();
+            }
+        }
+    }
+}

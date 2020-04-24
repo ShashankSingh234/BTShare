@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 
 using Android.App;
+using Android.Bluetooth;
 using Android.Bluetooth.LE;
 using Android.Content;
 using Android.OS;
@@ -14,10 +15,10 @@ using Android.Widget;
 
 namespace BTShare2.Callbacks
 {
-    internal class MyScanCallback : ScanCallback
+    public class MyScanCallback : ScanCallback
     {
         MainActivity mainActivity;
-        int i = 0;
+
         public MyScanCallback(MainActivity mainActivity)
         {
             this.mainActivity = mainActivity;
@@ -26,6 +27,11 @@ namespace BTShare2.Callbacks
         public override void OnScanResult([GeneratedEnum] ScanCallbackType callbackType, ScanResult result)
         {
             base.OnScanResult(callbackType, result);
+
+            mainActivity.RunOnUiThread(() =>
+            {
+                mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Discover result called";
+            });
 
             if (result == null || result.Device == null || TextUtils.IsEmpty(result.Device.Name))
                 return;
@@ -38,20 +44,34 @@ namespace BTShare2.Callbacks
 
             mainActivity.success++;
             mainActivity.mSuccessCountText.Text = mainActivity.success.ToString();
-            mainActivity.mText.Text = mainActivity.mText.Text + builder.ToString();
+            //mainActivity.mText.Text = mainActivity.mText.Text + builder.ToString();
 
-            //if (i > 0)
-            //    return;
-            //i++;
-            //mainActivity.ConnectDevice(result.Device.Address, false);
-            //MyBluetoothGattCallback myBluetoothGattCallback = new MyBluetoothGattCallback();
+
+            mainActivity.RunOnUiThread(() =>
+                {
+                    mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Connect gatt";
+                });
+
+            mainActivity.bluetoothGatt = null;
+            mainActivity.bluetoothGatt = result.Device.ConnectGatt(mainActivity, false, mainActivity.myBluetoothGattCallback);
+
+            mainActivity.bluetoothLeScanner.StopScan(mainActivity.myScanCallback);
+
             //if (Build.VERSION.SdkInt >= BuildVersionCodes.M)
             //{
-            //    mainActivity.bluetoothGatt = result.Device.ConnectGatt(mainActivity, true, myBluetoothGattCallback, BluetoothTransports.Auto);
+            //    mainActivity.RunOnUiThread(() =>
+            //    {
+            //        mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Connect gatt Marshmallow a";
+            //    });
+            //    mainActivity.bluetoothGatt = result.Device.ConnectGatt(mainActivity, false, mainActivity.myBluetoothGattCallback);
             //}
             //else
             //{
-            //mainActivity.bluetoothGatt = result.Device.ConnectGatt(mainActivity, true, myBluetoothGattCallback);
+            //    mainActivity.RunOnUiThread(() =>
+            //    {
+            //        mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Connect gatt marshmallow previous";
+            //    });
+            //    mainActivity.bluetoothGatt = result.Device.ConnectGatt(mainActivity, false, mainActivity.myBluetoothGattCallback);
             //}
         }
 
@@ -65,6 +85,10 @@ namespace BTShare2.Callbacks
             base.OnScanFailed(errorCode);
             mainActivity.failed++;
             mainActivity.mFailedCountText.Text = mainActivity.failed.ToString();
+            mainActivity.RunOnUiThread(() =>
+            {
+                mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Discover failed" + errorCode.ToString();
+            });
         }
     }
 }
