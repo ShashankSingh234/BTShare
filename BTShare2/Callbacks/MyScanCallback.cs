@@ -36,6 +36,10 @@ namespace BTShare2.Callbacks
             if (result == null || result.Device == null || TextUtils.IsEmpty(result.Device.Name))
                 return;
 
+            if (mainActivity.connectedDeviceMac.Contains(result.Device.Address))
+                return;
+            mainActivity.connectedDeviceMac.Add(result.Device.Address);
+
             StringBuilder builder = new StringBuilder(result.Device.Name);
             builder.Append(" ").Append(result.Device.Address);
             byte[] data;
@@ -49,13 +53,14 @@ namespace BTShare2.Callbacks
 
             mainActivity.RunOnUiThread(() =>
                 {
+                    mainActivity.remoteAddressText.Text = result.Device.Address;
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Connect gatt";
                 });
 
             mainActivity.bluetoothGatt = null;
             mainActivity.bluetoothGatt = result.Device.ConnectGatt(mainActivity, false, mainActivity.myBluetoothGattCallback);
 
-            mainActivity.bluetoothLeScanner.StopScan(mainActivity.myScanCallback);
+            //mainActivity.bluetoothLeScanner.StopScan(mainActivity.myScanCallback);
 
             //if (Build.VERSION.SdkInt >= BuildVersionCodes.M)
             //{

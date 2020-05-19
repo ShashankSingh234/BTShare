@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
+using System.Threading.Tasks;
 using Android.App;
 using Android.Bluetooth;
 using Android.Content;
@@ -33,8 +33,10 @@ namespace BTShare2.Callbacks
                 {
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local connected successfully";
                 });
+
+                gatt.RequestMtu(512);
+
                 //Log.i(TAG, "Connected to GATT server.");
-                gatt.DiscoverServices();
             }
             else if (newState == ProfileState.Disconnected)
             {
@@ -73,25 +75,32 @@ namespace BTShare2.Callbacks
                 mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local discovered successfully";
             });
 
-            var characteristic = gatt.GetService(Constants.MY_UUID)
-                  .GetCharacteristic(Constants.MY_UUID);
+            try
+            {
+                var characteristic = gatt.GetService(Constants.MY_UUID)
+                      .GetCharacteristic(Constants.MY_UUID);
 
-            characteristic.WriteType = GattWriteType.Default;
-            //var t = gatt.ReadCharacteristic(characteristic);
+                characteristic.WriteType = GattWriteType.Default;
+                //var t = gatt.ReadCharacteristic(characteristic);
 
-            var mInitialized = gatt.SetCharacteristicNotification(characteristic, true);
+                var mInitialized = gatt.SetCharacteristicNotification(characteristic, true);
 
-            //BluetoothGattDescriptor descriptor = characteristic.GetDescriptor(Constants.MY_UUID);
+                //BluetoothGattDescriptor descriptor = characteristic.GetDescriptor(Constants.MY_UUID);
 
-            //byte[] writeValue = Encoding.UTF8.GetBytes("Hello from reciever");
+                //byte[] writeValue = Encoding.UTF8.GetBytes("Hello from reciever");
 
-            //descriptor.SetValue(writeValue);
-            //gatt.WriteDescriptor(descriptor);
+                //descriptor.SetValue(writeValue);
+                //gatt.WriteDescriptor(descriptor);
 
-            var t = Encoding.UTF8.GetBytes("Hello from client");
-            characteristic.SetValue(t);
+                var t = Encoding.UTF8.GetBytes(mainActivity.dataToTransmit);
+                characteristic.SetValue(t);
 
-            var success = mainActivity.bluetoothGatt.WriteCharacteristic(characteristic);
+                var success = mainActivity.bluetoothGatt.WriteCharacteristic(characteristic);
+            }
+            catch(Exception ex)
+            {
+
+            }
         }
 
         //public override void OnDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, [GeneratedEnum] GattStatus status)
@@ -155,9 +164,10 @@ namespace BTShare2.Callbacks
             if (byteRecieved != null)
             {
                 var value = Encoding.UTF8.GetString(byteRecieved);
+                value = value + " Client";
                 mainActivity.RunOnUiThread(() =>
                 {
-                    mainActivity.mText.Text = mainActivity.mText.Text + " " + value;
+                    mainActivity.mText.Text = mainActivity.mText.Text + "\n" + value;
                 });
             }
             else
@@ -167,6 +177,18 @@ namespace BTShare2.Callbacks
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Recieved null data";
                 });
             }
+        }
+
+        public override void OnMtuChanged(BluetoothGatt gatt, int mtu, [GeneratedEnum] GattStatus status)
+        {
+            base.OnMtuChanged(gatt, mtu, status);
+
+
+            mainActivity.RunOnUiThread(() =>
+            {
+                mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local discover started";
+            });
+            gatt.DiscoverServices();
         }
 
         void DisconnectGattServer()

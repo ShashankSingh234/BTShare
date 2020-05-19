@@ -28,9 +28,15 @@ namespace BTShare2.Callbacks
         {
             base.OnConnectionStateChange(device, status, newState);
 
+            mainActivity.RunOnUiThread(() => {
+                mainActivity.remoteAddressText.Text = device.Address;
+            });
+            
             if(newState == ProfileState.Connected)
             {
                 connectedDevices.Add(device);
+                mainActivity.connectedDeviceMac.Add(device.Address);
+                //device.ConnectGatt(mainActivity, false, mainActivity.myBluetoothGattCallback);
             }
             else
             {
@@ -60,15 +66,15 @@ namespace BTShare2.Callbacks
             if (Constants.MY_UUID.Equals(characteristic.Uuid))
             {
                 var t = Encoding.UTF8.GetString(value);
-
+                t = t + " Server";
                 mainActivity.RunOnUiThread(() =>
                 {
-                    mainActivity.mText.Text = mainActivity.mText.Text + " " + t;
+                    mainActivity.mText.Text = mainActivity.mText.Text + "\n" + t;
                 });
 
                 mainActivity.bluetoothGattServer.SendResponse(device, requestId, GattStatus.Success, 0, null);
 
-                characteristic.SetValue("Hello from server thfffjfjfffjffgfhfjfjfjhfjhfghfghfgfgjfjgjfghfghfgfgfgjfhgfjfgjfjhfjfgjfjfghfhjfhjhffhfhffhfffjfhjjfhjfttrtrrtrtrwerweweweqwewioioiooiiooiioioioioioioioioipppppppppbbbbvvcxxxzzzzza");
+                characteristic.SetValue(mainActivity.dataToTransmit);
 
                 foreach (var connectedDevice in connectedDevices)
                 {
@@ -76,7 +82,7 @@ namespace BTShare2.Callbacks
                 }
             }
         }
-        
+
         public override void OnDescriptorWriteRequest(BluetoothDevice device, int requestId, BluetoothGattDescriptor descriptor, bool preparedWrite, bool responseNeeded, int offset, byte[] value)
         {
             base.OnDescriptorWriteRequest(device, requestId, descriptor, preparedWrite, responseNeeded, offset, value);

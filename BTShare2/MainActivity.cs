@@ -14,12 +14,14 @@ using BTShare2.Helpers;
 using BTShare2.Services;
 using BTShare2.Callbacks;
 using System.Text;
+using System;
 
 namespace BTShare2
 {
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
+        public TextView remoteAddressText;
         public TextView mSuccessCountText;
         public TextView mFailedCountText;
         public TextView mText;
@@ -54,6 +56,9 @@ namespace BTShare2
         public bool isDiscovering;
         bool isServerRunning;
 
+        public List<string> connectedDeviceMac;
+        public string dataToTransmit;
+
         protected override void OnCreate(Bundle savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
@@ -64,6 +69,7 @@ namespace BTShare2
             AppCenter.Start("5c06e9f4-aa80-40ff-8cf4-f957345a44c5",
                    typeof(Analytics), typeof(Crashes));
 
+            remoteAddressText = FindViewById<TextView>(Resource.Id.remoteAddressText);
             mSuccessCountText = FindViewById<TextView>(Resource.Id.successCountText);
             mFailedCountText = FindViewById<TextView>(Resource.Id.failedCountText);
             mText = FindViewById<TextView>(Resource.Id.text);
@@ -86,6 +92,9 @@ namespace BTShare2
             mBluetoothManager = (BluetoothManager)GetSystemService(Context.BluetoothService);
 
             myBluetoothGattCallback = new MyBluetoothGattCallback(this);
+
+            connectedDeviceMac = new List<string>();
+            dataToTransmit = Guid.NewGuid().ToString();
         }
 
         protected override void OnStart()
