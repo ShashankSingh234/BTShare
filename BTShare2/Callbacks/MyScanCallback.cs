@@ -28,23 +28,28 @@ namespace BTShare2.Callbacks
         {
             base.OnScanResult(callbackType, result);
 
-            mainActivity.RunOnUiThread(() =>
-            {
-                mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Discover result called";
-            });
-
             if (result == null || result.Device == null || TextUtils.IsEmpty(result.Device.Name))
                 return;
+
+            if (mainActivity.isGattConnected)
+                return;
+            mainActivity.isGattConnected = true;
 
             if (mainActivity.connectedDeviceMac.Contains(result.Device.Address))
                 return;
             mainActivity.connectedDeviceMac.Add(result.Device.Address);
 
+            mainActivity.RunOnUiThread(() =>
+            {
+                mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Discover result called";
+            });
+
+
             StringBuilder builder = new StringBuilder(result.Device.Name);
             builder.Append(" ").Append(result.Device.Address);
             byte[] data;
-            result.ScanRecord.ServiceData.TryGetValue(result.ScanRecord.ServiceUuids[0], out data);
-            builder.Append("\n").Append(Encoding.UTF8.GetString(data));
+            //result.ScanRecord.ServiceData.TryGetValue(result.ScanRecord.ServiceUuids[0], out data);
+            //builder.Append("\n").Append(Encoding.UTF8.GetString(data));
 
             mainActivity.success++;
             mainActivity.mSuccessCountText.Text = mainActivity.success.ToString();

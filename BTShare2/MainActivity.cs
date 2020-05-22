@@ -21,6 +21,7 @@ namespace BTShare2
     [Activity(Label = "@string/app_name", Theme = "@style/AppTheme", MainLauncher = true)]
     public class MainActivity : AppCompatActivity
     {
+        public TextView myAddressText;
         public TextView remoteAddressText;
         public TextView mSuccessCountText;
         public TextView mFailedCountText;
@@ -41,6 +42,8 @@ namespace BTShare2
         public MyAdvertiseCallback myAdvertiseCallback;
         public MyBluetoothGattCallback myBluetoothGattCallback;
         public MyBluetoothGattServerCallback myBluetoothGattServerCallback;
+
+        public bool isGattConnected = false;
 
         private Handler mHandler = new Handler();
 
@@ -69,6 +72,7 @@ namespace BTShare2
             AppCenter.Start("5c06e9f4-aa80-40ff-8cf4-f957345a44c5",
                    typeof(Analytics), typeof(Crashes));
 
+            myAddressText = FindViewById<TextView>(Resource.Id.myAddressText);
             remoteAddressText = FindViewById<TextView>(Resource.Id.remoteAddressText);
             mSuccessCountText = FindViewById<TextView>(Resource.Id.successCountText);
             mFailedCountText = FindViewById<TextView>(Resource.Id.failedCountText);
@@ -95,6 +99,7 @@ namespace BTShare2
 
             connectedDeviceMac = new List<string>();
             dataToTransmit = Guid.NewGuid().ToString();
+            myAddressText.Text = myAddressText.Text + " " + dataToTransmit;
         }
 
         protected override void OnStart()
@@ -132,6 +137,27 @@ namespace BTShare2
         protected override void OnDestroy()
         {
             base.OnDestroy();
+
+            if (bluetoothLeAdvertiser != null && myAdvertiseCallback != null)
+            {
+                isAdvertising = false;
+                bluetoothLeAdvertiser.StopAdvertising(myAdvertiseCallback);
+            }
+            if (bluetoothLeScanner != null && myScanCallback != null)
+            {
+                isDiscovering = false;
+                bluetoothLeScanner.StopScan(myScanCallback);
+            }
+            if (bluetoothGattServer != null)
+            {
+                isServerRunning = false;
+                bluetoothGattServer.Close();
+            }
+        }
+
+        public override void OnBackPressed()
+        {
+            base.OnBackPressed();
 
             if (bluetoothLeAdvertiser != null && myAdvertiseCallback != null)
             {

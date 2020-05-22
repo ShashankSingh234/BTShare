@@ -17,6 +17,12 @@
         android:text="Discover" />
  
     <TextView
+        android:id="@+id/myAddressText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="My Address"/>
+
+    <TextView
         android:id="@+id/remoteAddressText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

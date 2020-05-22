@@ -35,30 +35,14 @@ namespace BTShare2.Callbacks
             if(newState == ProfileState.Connected)
             {
                 connectedDevices.Add(device);
-                mainActivity.connectedDeviceMac.Add(device.Address);
+                //mainActivity.connectedDeviceMac.Add(device.Address);
                 //device.ConnectGatt(mainActivity, false, mainActivity.myBluetoothGattCallback);
             }
             else
             {
-                connectedDevices.Remove(device);
+                connectedDevices.Remove(connectedDevices.Find(x => x.Address.Equals(device.Address)));
             }
         }
-
-        //public override void OnCharacteristicReadRequest(BluetoothDevice device, int requestId, int offset, BluetoothGattCharacteristic characteristic)
-        //{
-        //    base.OnCharacteristicReadRequest(device, requestId, offset, characteristic);
-
-        //    //mainActivity.RunOnUiThread(() =>
-        //    //{
-        //    //    mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt server read request";
-        //    //});
-
-        //    //if (Constants.MY_UUID.Equals(characteristic.Uuid))
-        //    //{
-        //    //    byte[] value = Encoding.UTF8.GetBytes("Hello from server");
-        //    //    mainActivity.bluetoothGattServer.SendResponse(device, requestId, GattStatus.Success, 0, value);
-        //    //}
-        //}
 
         public override void OnCharacteristicWriteRequest(BluetoothDevice device, int requestId, BluetoothGattCharacteristic characteristic, bool preparedWrite, bool responseNeeded, int offset, byte[] value)
         {

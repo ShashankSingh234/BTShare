@@ -18,6 +18,7 @@ namespace BTShare2.Callbacks
     {
         //BluetoothGattCharacteristic characteristic;
         MainActivity mainActivity;
+        bool gattConnectedOnce = false;
         public MyBluetoothGattCallback(MainActivity mainActivity)
         {
             this.mainActivity = mainActivity;
@@ -31,15 +32,25 @@ namespace BTShare2.Callbacks
             {
                 mainActivity.RunOnUiThread(() =>
                 {
+                    gattConnectedOnce = true;
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local connected successfully";
                 });
 
-                gatt.RequestMtu(512);
+                gatt.RequestMtu(50);
+
+                //mainActivity.RunOnUiThread(() =>
+                //{
+                //    mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local discover started";
+                //});
+                //gatt.DiscoverServices();
 
                 //Log.i(TAG, "Connected to GATT server.");
             }
             else if (newState == ProfileState.Disconnected)
             {
+                if (!gattConnectedOnce)
+                    mainActivity.connectedDeviceMac.Remove(gatt.Device.Address);
+                gattConnectedOnce = false;
                 mainActivity.RunOnUiThread(() =>
                 {
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local disconnected";
@@ -49,7 +60,8 @@ namespace BTShare2.Callbacks
             }
             else
             {
-                DisconnectGattServer();
+                gatt.Disconnect();
+                //DisconnectGattServer();
             }
             //byte[] newValue = characteristic.GetValue();
             //if (newState == ProfileState.Connected)
@@ -103,54 +115,6 @@ namespace BTShare2.Callbacks
             }
         }
 
-        //public override void OnDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, [GeneratedEnum] GattStatus status)
-        //{
-        //    base.OnDescriptorWrite(gatt, descriptor, status);
-        //    if (Constants.MY_UUID.Equals(descriptor.Uuid))
-        //    {
-        //        BluetoothGattCharacteristic characteristic = gatt.GetService(Constants.MY_UUID)
-        //          .GetCharacteristic(Constants.MY_UUID);
-        //        var t = gatt.ReadCharacteristic(characteristic);
-        //    }
-        //}
-
-        //public override void OnCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, [GeneratedEnum] GattStatus status)
-        //{
-        //    base.OnCharacteristicRead(gatt, characteristic, status);
-
-        //    mainActivity.RunOnUiThread(() =>
-        //    {
-        //        mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local characterstic read";
-        //    });
-
-        //    byte[] data = characteristic.GetValue();
-        //    if (data != null)
-        //    {
-        //        var value = Encoding.UTF8.GetString(data);
-        //        mainActivity.RunOnUiThread(() =>
-        //        {
-        //            mainActivity.mText.Text = mainActivity.mText.Text + " " + value;
-        //        });
-        //    }
-        //    else
-        //    {
-        //        mainActivity.RunOnUiThread(() =>
-        //        {
-        //            mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Recieved null data";
-        //        });
-        //    }
-        //}
-
-        //public override void OnCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic)
-        //{
-        //    base.OnCharacteristicChanged(gatt, characteristic);
-        //}
-
-        //public override void OnDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, [GeneratedEnum] GattStatus status)
-        //{
-        //    base.OnDescriptorRead(gatt, descriptor, status);
-        //}
-
         public override void OnCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic)
         {
             base.OnCharacteristicChanged(gatt, characteristic);
@@ -177,6 +141,7 @@ namespace BTShare2.Callbacks
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Recieved null data";
                 });
             }
+            gatt.Disconnect();
         }
 
         public override void OnMtuChanged(BluetoothGatt gatt, int mtu, [GeneratedEnum] GattStatus status)
@@ -197,6 +162,7 @@ namespace BTShare2.Callbacks
             {
                 mainActivity.bluetoothGatt.Disconnect();
                 mainActivity.bluetoothGatt.Close();
+                mainActivity.isGattConnected = false;
             }
         }
     }
