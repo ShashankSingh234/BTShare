@@ -37,13 +37,14 @@ namespace BTShare2.Callbacks
 
             if (mainActivity.connectedDeviceMac.Contains(result.Device.Address))
                 return;
-            mainActivity.connectedDeviceMac.Add(result.Device.Address);
+            //mainActivity.connectedDeviceMac.Add(result.Device.Address);
+
+            var tttt = mainActivity.recievedUserId;
 
             mainActivity.RunOnUiThread(() =>
             {
                 mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Discover result called";
             });
-
 
             StringBuilder builder = new StringBuilder(result.Device.Name);
             builder.Append(" ").Append(result.Device.Address);
@@ -51,8 +52,8 @@ namespace BTShare2.Callbacks
             //result.ScanRecord.ServiceData.TryGetValue(result.ScanRecord.ServiceUuids[0], out data);
             //builder.Append("\n").Append(Encoding.UTF8.GetString(data));
 
-            mainActivity.success++;
-            mainActivity.mSuccessCountText.Text = mainActivity.success.ToString();
+            //mainActivity.success++;
+            mainActivity.mSuccessCountText.Text = mainActivity.connectedDeviceMac.Count().ToString() + " " + mainActivity.connectedDeviceMac.Distinct().Count().ToString(); //mainActivity.success.ToString();
             //mainActivity.mText.Text = mainActivity.mText.Text + builder.ToString();
 
 

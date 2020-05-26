@@ -43,7 +43,7 @@ namespace BTShare2
         public MyBluetoothGattCallback myBluetoothGattCallback;
         public MyBluetoothGattServerCallback myBluetoothGattServerCallback;
 
-        public bool isGattConnected = false;
+        public volatile bool isGattConnected = false;
 
         private Handler mHandler = new Handler();
 
@@ -61,6 +61,8 @@ namespace BTShare2
 
         public List<string> connectedDeviceMac;
         public string dataToTransmit;
+
+        public List<string> recievedUserId;
 
         protected override void OnCreate(Bundle savedInstanceState)
         {
@@ -100,6 +102,8 @@ namespace BTShare2
             connectedDeviceMac = new List<string>();
             dataToTransmit = Guid.NewGuid().ToString();
             myAddressText.Text = myAddressText.Text + " " + dataToTransmit;
+
+            recievedUserId = new List<string>();
         }
 
         protected override void OnStart()
@@ -276,7 +280,7 @@ namespace BTShare2
                 AdvertiseData data = new AdvertiseData.Builder()
                         .SetIncludeDeviceName(true)
                         .AddServiceUuid(pUuid)
-                        .AddServiceData(pUuid, Encoding.UTF8.GetBytes("Data send"))
+                        //.AddServiceData(pUuid, Encoding.UTF8.GetBytes("Data send"))
                         .Build();
 
                 myAdvertiseCallback = new MyAdvertiseCallback(this);

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Android.App;
 using Android.Bluetooth;
@@ -36,6 +37,8 @@ namespace BTShare2.Callbacks
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local connected successfully";
                 });
 
+                Thread.Sleep(2000);
+
                 gatt.RequestMtu(50);
 
                 //mainActivity.RunOnUiThread(() =>
@@ -48,18 +51,24 @@ namespace BTShare2.Callbacks
             }
             else if (newState == ProfileState.Disconnected)
             {
-                if (!gattConnectedOnce)
+                Thread.Sleep(5000);
+                if (!gattConnectedOnce && mainActivity.connectedDeviceMac.Contains(gatt.Device.Address))
                     mainActivity.connectedDeviceMac.Remove(gatt.Device.Address);
                 gattConnectedOnce = false;
                 mainActivity.RunOnUiThread(() =>
                 {
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local disconnected";
                 });
+                mainActivity.isGattConnected = false;
                 DisconnectGattServer();
                 //Log.i(TAG, "Disconnected from GATT server.");
             }
             else
             {
+                if (!gattConnectedOnce && mainActivity.connectedDeviceMac.Contains(gatt.Device.Address))
+                    mainActivity.connectedDeviceMac.Remove(gatt.Device.Address);
+                gattConnectedOnce = false;
+                //mainActivity.isGattConnected = false;
                 gatt.Disconnect();
                 //DisconnectGattServer();
             }
@@ -109,7 +118,7 @@ namespace BTShare2.Callbacks
 
                 var success = mainActivity.bluetoothGatt.WriteCharacteristic(characteristic);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
 
             }
@@ -124,11 +133,14 @@ namespace BTShare2.Callbacks
                 mainActivity.logTextView.Text = mainActivity.logTextView.Text + "On Characteristic changed";
             });
 
+            mainActivity.connectedDeviceMac.Add(gatt.Device.Address);
+
             var byteRecieved = characteristic.GetValue();
             if (byteRecieved != null)
             {
                 var value = Encoding.UTF8.GetString(byteRecieved);
                 value = value + " Client";
+                mainActivity.recievedUserId.Add(value);
                 mainActivity.RunOnUiThread(() =>
                 {
                     mainActivity.mText.Text = mainActivity.mText.Text + "\n" + value;
@@ -141,13 +153,13 @@ namespace BTShare2.Callbacks
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Recieved null data";
                 });
             }
+            //DisconnectGattServer();
             gatt.Disconnect();
         }
 
         public override void OnMtuChanged(BluetoothGatt gatt, int mtu, [GeneratedEnum] GattStatus status)
         {
             base.OnMtuChanged(gatt, mtu, status);
-
 
             mainActivity.RunOnUiThread(() =>
             {
@@ -160,9 +172,22 @@ namespace BTShare2.Callbacks
         {
             if (mainActivity.bluetoothGatt != null)
             {
-                mainActivity.bluetoothGatt.Disconnect();
-                mainActivity.bluetoothGatt.Close();
-                mainActivity.isGattConnected = false;
+                try
+                {
+                    mainActivity.bluetoothGatt.Disconnect();
+                    gattConnectedOnce = false;
+                    mainActivity.isGattConnected = false;
+                    mainActivity.bluetoothGatt.Close();
+                }
+                catch (Exception ex)
+                {
+
+                }
+                finally
+                {
+                    gattConnectedOnce = false;
+                    mainActivity.isGattConnected = false;
+                }
             }
         }
     }
