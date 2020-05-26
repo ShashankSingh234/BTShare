@@ -51,7 +51,8 @@ namespace BTShare2.Callbacks
             }
             else if (newState == ProfileState.Disconnected)
             {
-                Thread.Sleep(5000);
+                mainActivity.IsGattConnected = false;
+
                 if (!gattConnectedOnce && mainActivity.connectedDeviceMac.Contains(gatt.Device.Address))
                     mainActivity.connectedDeviceMac.Remove(gatt.Device.Address);
                 gattConnectedOnce = false;
@@ -59,7 +60,7 @@ namespace BTShare2.Callbacks
                 {
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Gatt local disconnected";
                 });
-                mainActivity.isGattConnected = false;
+                
                 DisconnectGattServer();
                 //Log.i(TAG, "Disconnected from GATT server.");
             }
@@ -153,7 +154,7 @@ namespace BTShare2.Callbacks
                     mainActivity.logTextView.Text = mainActivity.logTextView.Text + "Recieved null data";
                 });
             }
-            //DisconnectGattServer();
+            Thread.Sleep(2000);
             gatt.Disconnect();
         }
 
@@ -174,10 +175,9 @@ namespace BTShare2.Callbacks
             {
                 try
                 {
-                    mainActivity.bluetoothGatt.Disconnect();
-                    gattConnectedOnce = false;
-                    mainActivity.isGattConnected = false;
-                    mainActivity.bluetoothGatt.Close();
+                    //mainActivity.bluetoothGatt.Disconnect();
+                    mainActivity.IsGattConnected = false;
+                    //mainActivity.bluetoothGatt.Close();
                 }
                 catch (Exception ex)
                 {
@@ -185,8 +185,7 @@ namespace BTShare2.Callbacks
                 }
                 finally
                 {
-                    gattConnectedOnce = false;
-                    mainActivity.isGattConnected = false;
+                    mainActivity.IsGattConnected = false;
                 }
             }
         }

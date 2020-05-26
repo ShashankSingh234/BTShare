@@ -31,9 +31,9 @@ namespace BTShare2.Callbacks
             if (result == null || result.Device == null || TextUtils.IsEmpty(result.Device.Name))
                 return;
 
-            if (mainActivity.isGattConnected)
+            if (mainActivity.IsGattConnected)
                 return;
-            mainActivity.isGattConnected = true;
+            mainActivity.IsGattConnected = true;
 
             if (mainActivity.connectedDeviceMac.Contains(result.Device.Address))
                 return;

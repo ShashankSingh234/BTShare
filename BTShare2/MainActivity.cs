@@ -43,7 +43,7 @@ namespace BTShare2
         public MyBluetoothGattCallback myBluetoothGattCallback;
         public MyBluetoothGattServerCallback myBluetoothGattServerCallback;
 
-        public volatile bool isGattConnected = false;
+        public bool IsGattConnected { get; set; } = false;
 
         private Handler mHandler = new Handler();
 
